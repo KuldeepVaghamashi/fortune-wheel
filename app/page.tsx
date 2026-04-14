@@ -56,6 +56,9 @@ export default function WheelSelectorPage() {
   const [spinError, setSpinError] = useState("");
   const [isSpinRequestPending, setIsSpinRequestPending] = useState(false);
   const [showWinnerBanner, setShowWinnerBanner] = useState(false);
+  // Round-based fairness: tracks who has already won in the current round.
+  // Everyone wins once before anyone can win again — prevents repeated winners.
+  const [roundWinnerIds, setRoundWinnerIds] = useState<string[]>([]);
 
   const initializedRef = useRef(false);
   const lastHandledSpinRef = useRef("");
@@ -99,6 +102,8 @@ export default function WheelSelectorPage() {
       { name: winner.name, timestamp: new Date() },
       ...prev.slice(0, 9),
     ]);
+    // Record this winner in the current round
+    setRoundWinnerIds((prev) => [...prev, winner.id]);
     setTimeout(() => setShowConfetti(false), 6000);
   }, []);
 
@@ -109,6 +114,7 @@ export default function WheelSelectorPage() {
     setWinnerHistory([]);
     setLastWinner(null);
     setShowWinnerBanner(false);
+    setRoundWinnerIds([]);
   };
 
   const triggerSpin = async () => {
@@ -117,10 +123,26 @@ export default function WheelSelectorPage() {
     setShowWinnerBanner(false);
     setIsSpinRequestPending(true);
 
+    // Round-based fairness: compute which IDs to exclude this spin.
+    // Only eligible (included + weight > 0) participants count toward the round.
+    const eligibleIds = participants
+      .filter((p) => p.included && p.weight > 0)
+      .map((p) => p.id);
+
+    const wonThisRound = roundWinnerIds.filter((id) => eligibleIds.includes(id));
+    const allWon = eligibleIds.length > 0 && wonThisRound.length >= eligibleIds.length;
+
+    if (allWon) {
+      // Everyone has won once — start a fresh round, no exclusions this spin
+      setRoundWinnerIds([]);
+    }
+
+    const excludeIds = allWon ? [] : wonThisRound;
+
     const res = await fetch("/api/spin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ participants: participants.map(mapToDb) }),
+      body: JSON.stringify({ participants: participants.map(mapToDb), excludeIds }),
     });
     if (!res.ok) {
       setIsSpinRequestPending(false);

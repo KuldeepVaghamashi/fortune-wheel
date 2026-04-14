@@ -9,8 +9,8 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    // Client sends its current participant list so spin works even without DB
-    let body: { participants?: Participant[] } = {};
+    // Client sends participant list + round-exclusion IDs
+    let body: { participants?: Participant[]; excludeIds?: string[] } = {};
     try { body = await req.json(); } catch { /* empty body is fine */ }
 
     // Get participants: prefer what the client sent, fall back to DB
@@ -31,15 +31,34 @@ export async function POST(req: Request) {
     // concurrent requests — next spin always gets mode:"normal".
     const config = await consumeSpinConfig();
 
+    // Round-based fairness (normal mode only): temporarily exclude participants
+    // who already won this round so everyone wins once before repeats happen.
+    let spinParticipants = participants;
+    if (
+      config.mode === "normal" &&
+      Array.isArray(body.excludeIds) &&
+      body.excludeIds.length > 0
+    ) {
+      const excludeSet = new Set<string>(body.excludeIds);
+      const reduced = participants.map((p) =>
+        excludeSet.has(p._id) ? { ...p, isExcluded: true } : p,
+      );
+      const stillEligible = reduced.filter((p) => !p.isExcluded && p.weight > 0);
+      // Only apply exclusions if at least one participant remains eligible
+      if (stillEligible.length > 0) {
+        spinParticipants = reduced;
+      }
+    }
+
     let effectiveConfig: SpinConfig = config;
     let winner;
     try {
-      winner = selectWinner(participants, effectiveConfig);
+      winner = selectWinner(spinParticipants, effectiveConfig);
     } catch {
       if (effectiveConfig.mode === "override") {
         // Preselected winner is no longer eligible — fall back to random
         effectiveConfig = { mode: "normal" };
-        winner = selectWinner(participants, effectiveConfig);
+        winner = selectWinner(spinParticipants, effectiveConfig);
       } else {
         throw new Error("No eligible participants");
       }
