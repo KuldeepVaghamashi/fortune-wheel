@@ -60,8 +60,8 @@ export function AdminPanel({
   }, [localConfig.mode]);
 
   const preselectedWinner = eligible.find((p) => p._id === localConfig.overrideWinnerId);
-  const activePreselected = config.mode === "override" && config.overrideWinnerId
-    ? eligible.find((p) => p._id === config.overrideWinnerId)
+  const activePreselected = localConfig.mode === "override" && localConfig.overrideWinnerId
+    ? eligible.find((p) => p._id === localConfig.overrideWinnerId)
     : null;
 
   return (
