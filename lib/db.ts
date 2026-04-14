@@ -115,25 +115,26 @@ export async function consumeSpinConfig(): Promise<SpinConfig> {
   }
 }
 
+/**
+ * Persists config to DB and updates in-memory.
+ * Throws if the DB write fails — callers that need guaranteed persistence
+ * (e.g. setting an override) should let the error bubble up.
+ */
 export async function setSpinConfig(config: SpinConfig): Promise<SpinConfig> {
   inMemoryConfig = config;
-  try {
-    await withDb(async (db) => {
-      await db.collection("spin_config").updateOne(
-        { key: "active" },
-        {
-          $set: {
-            key: "active",
-            mode: config.mode,
-            overrideWinnerId: config.overrideWinnerId ?? null,
-          },
+  await withDb(async (db) => {
+    await db.collection("spin_config").updateOne(
+      { key: "active" },
+      {
+        $set: {
+          key: "active",
+          mode: config.mode,
+          overrideWinnerId: config.overrideWinnerId ?? null,
         },
-        { upsert: true },
-      );
-    });
-  } catch {
-    // In-memory already updated
-  }
+      },
+      { upsert: true },
+    );
+  });
   return config;
 }
 

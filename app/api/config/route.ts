@@ -1,4 +1,4 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { getSpinConfig, setSpinConfig } from "@/lib/db";
 import type { SpinConfig } from "@/lib/types";
 
@@ -21,8 +21,23 @@ export async function PUT(req: Request) {
       overrideWinnerId: body.overrideWinnerId,
     };
 
-    // Persist to DB in background — no blocking wait
-    after(() => setSpinConfig(next).catch(() => {}));
+    if (next.mode === "override") {
+      // Override MUST be persisted to DB before we respond.
+      // The spin runs in a different serverless process — in-memory state
+      // does not cross process boundaries, so DB is the only shared store.
+      // If DB is unreachable the save fails and we tell the admin immediately.
+      try {
+        await setSpinConfig(next);
+      } catch {
+        return NextResponse.json(
+          { error: "Could not save — database unreachable. Open MongoDB Atlas → Network Access and allow 0.0.0.0/0." },
+          { status: 503 },
+        );
+      }
+    } else {
+      // Clearing preselect: best-effort DB write, never fails the request
+      setSpinConfig(next).catch(() => {});
+    }
 
     return NextResponse.json({ config: next });
   } catch {

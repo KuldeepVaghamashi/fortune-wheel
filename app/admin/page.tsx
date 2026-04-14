@@ -50,10 +50,13 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(nextConfig),
     });
-    if (!res.ok) return setMessage("Failed to save settings");
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      return setMessage(json.error ?? "Failed to save settings");
+    }
     const json = await res.json();
     setConfig(json.config);
-    setMessage("Settings saved");
+    setMessage(nextConfig.mode === "override" ? "Preselect saved — active for next spin only" : "Settings saved");
   };
 
   const saveParticipants = async (nextParticipants: Participant[]) => {
