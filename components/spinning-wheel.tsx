@@ -259,7 +259,7 @@ export function SpinningWheel({
         ctx.stroke();
 
         // Text
-        const textR = radius * 0.62;
+        const textR = radius * 0.66;
         const tx = cx + Math.cos(midAngle) * textR;
         const ty = cy + Math.sin(midAngle) * textR;
 
@@ -271,25 +271,32 @@ export function SpinningWheel({
           ctx.rotate(midAngle + Math.PI / 2);
         }
 
-        const fontSize = Math.min(46, Math.max(14, (segAngle * radius) / 6.5));
+        // arc width at textR determines how tall the text can be (tangential orientation)
+        const arcWidth = textR * segAngle;
+        const fontSize = Math.min(40, Math.max(13, arcWidth / 2.3));
         ctx.font = `bold ${fontSize}px var(--font-orbitron), sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
-        const maxW = radius * 0.74;
+        // maxW is the lesser of 75% of radius or 82% of the arc — prevents text overflow on narrow segments
+        const maxW = Math.min(radius * 0.75, arcWidth * 0.82);
         let name = participant.name;
-        if (ctx.measureText(name).width > maxW) {
-          while (ctx.measureText(name + "…").width > maxW && name.length > 0) {
-            name = name.slice(0, -1);
-          }
-          name += "…";
+        while (ctx.measureText(name).width > maxW && name.length > 1) {
+          name = name.slice(0, -1);
         }
+        if (name !== participant.name) name = name.slice(0, -1) + "…";
 
-        ctx.shadowColor = "rgba(0,0,0,0.95)";
-        ctx.shadowBlur = 8;
-        ctx.shadowOffsetX = 1;
-        ctx.shadowOffsetY = 1;
+        // Dark stroke outline → readable on any segment color (yellow, cyan, pink…)
+        ctx.lineJoin = "round";
+        ctx.lineWidth = Math.max(3, fontSize * 0.14);
+        ctx.strokeStyle = "rgba(0,0,0,0.88)";
+        ctx.shadowColor = "rgba(0,0,0,0.7)";
+        ctx.shadowBlur = 5;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.strokeText(name, 0, 0);
         ctx.fillStyle = "#ffffff";
+        ctx.shadowBlur = 0;
         ctx.fillText(name, 0, 0);
         ctx.restore();
 
@@ -395,8 +402,8 @@ export function SpinningWheel({
       // system, there is zero CSS-pixel alignment error.
       const ptrTipX = cx;
       const ptrTipY = cy - radius - 2;   // tip just outside the segment edge
-      const ptrBaseY = ptrTipY - 26;     // base 26 px above tip
-      const ptrHW = 14;                  // half-width at base
+      const ptrBaseY = ptrTipY - 30;     // base 30 px above tip
+      const ptrHW = 16;                  // half-width at base
 
       // Drop shadow
       ctx.beginPath();
@@ -425,8 +432,8 @@ export function SpinningWheel({
       ctx.shadowBlur = 0;
 
       // Accent bar at base
-      ctx.fillStyle = "rgba(255,255,255,0.7)";
-      ctx.fillRect(ptrTipX - ptrHW - 2, ptrBaseY - 5, (ptrHW + 2) * 2, 5);
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.fillRect(ptrTipX - ptrHW - 2, ptrBaseY - 5, (ptrHW + 2) * 2, 6);
     },
     [activeParticipants, totalWeight, isSpinning]
   );
@@ -454,6 +461,11 @@ export function SpinningWheel({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Always keep drawWheelRef pointing at the latest drawWheel so the spin
+  // animation loop can call it without triggering React re-renders every frame.
+  const drawWheelRef = useRef(drawWheel);
+  useEffect(() => { drawWheelRef.current = drawWheel; }, [drawWheel]);
 
   const spinToWinner = useCallback(
     (winnerId: string) => {
@@ -490,26 +502,45 @@ export function SpinningWheel({
       let delta = ((neededRot - startRot) % 360 + 360) % 360;
       if (delta === 0) delta = 360;
 
-      // Add extra full spins for drama
-      const extraSpins = 5 + Math.floor(Math.random() * 3); // 5, 6 or 7
+      // More spins for drama, longer duration
+      const extraSpins = 6 + Math.floor(Math.random() * 3); // 6, 7 or 8
       const totalRot = extraSpins * 360 + delta;
-      const duration = 4000 + Math.random() * 500;
+      const duration = 4800 + Math.random() * 800; // 4.8 – 5.6 s
+
+      // Capture canvas once outside the loop
+      const canvas = canvasRef.current;
 
       const animate = () => {
         const elapsed = Date.now() - startTimeRef.current;
         const progress = Math.min(elapsed / duration, 1);
 
-        // easeOutQuart — smooth, natural deceleration
-        const eased = 1 - Math.pow(1 - progress, 4);
+        // ── Realistic wheel-physics easing ──
+        // Phase 1 (0–6 %): brief ease-in — quick power-up from rest
+        // Phase 2 (6–100 %): aggressive ease-out — friction deceleration
+        // The exponent 4.5 gives a dramatic slow-crawl at the very end,
+        // just like a real wheel ticking through the last few segments.
+        let eased: number;
+        if (progress < 0.06) {
+          const t = progress / 0.06;
+          eased = t * t * 0.035;              // maps [0..1] → [0..0.035]
+        } else {
+          const t = (progress - 0.06) / 0.94;
+          eased = 0.035 + 0.965 * (1 - Math.pow(1 - t, 4.5));
+        }
         const currentRot = startRot + eased * totalRot;
+        rotationRef.current = currentRot;
 
-        // No % 360 during animation — prevents backwards visual jump each revolution
-        setRotation(currentRot);
+        // Draw directly on canvas — avoids React re-render every frame
+        // (one batched React update fires only at the very end)
+        if (canvas) {
+          const ctx = canvas.getContext("2d");
+          if (ctx) drawWheelRef.current(ctx, canvas.width, currentRot, -1);
+        }
 
         if (progress < 1) {
           animationRef.current = requestAnimationFrame(animate);
         } else {
-          // Snap to the exact computed final angle so the winner is precisely at 270°
+          // Snap to exact winner angle; trigger one final React update
           setRotation(neededRot);
           setIsSpinning(false);
           setShowWinner(true);
