@@ -157,7 +157,7 @@ export default function WheelSelectorPage() {
       </div>
 
       {/* ── Header ── */}
-      <header className="relative z-10 flex items-center justify-between px-5 sm:px-8 py-3.5" style={{
+      <header className="relative z-10 flex items-center justify-between px-3 sm:px-8 py-3" style={{
         borderBottom: "1px solid rgba(255,255,255,0.045)",
         background: "rgba(2,2,10,0.75)",
         backdropFilter: "blur(28px)",
@@ -166,7 +166,7 @@ export default function WheelSelectorPage() {
         <div className="flex items-center gap-3">
           <div className="relative shrink-0">
             <div className="absolute inset-0 rounded-2xl" style={{ background: "linear-gradient(135deg,#00F5FF,#7C3AED)", filter: "blur(12px)", opacity: 0.55 }} />
-            <div className="relative flex items-center justify-center rounded-2xl" style={{ width: 44, height: 44, background: "linear-gradient(135deg,rgba(0,245,255,0.12),rgba(124,58,237,0.12))", border: "1px solid rgba(0,245,255,0.28)" }}>
+            <div className="relative flex items-center justify-center rounded-2xl" style={{ width: 36, height: 36, background: "linear-gradient(135deg,rgba(0,245,255,0.12),rgba(124,58,237,0.12))", border: "1px solid rgba(0,245,255,0.28)" }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="#00F5FF" strokeWidth="1.5" opacity="0.55" />
                 <circle cx="12" cy="12" r="4.5" stroke="#A78BFA" strokeWidth="1.5" />
@@ -179,18 +179,18 @@ export default function WheelSelectorPage() {
             </div>
           </div>
           <div>
-            <h1 className="font-[family-name:var(--font-orbitron)] font-black tracking-[0.13em] leading-none text-lg sm:text-xl" style={{
+            <h1 className="font-[family-name:var(--font-orbitron)] font-black tracking-tight sm:tracking-[0.13em] leading-none text-base sm:text-xl whitespace-nowrap" style={{
               background: "linear-gradient(90deg,#00F5FF 0%,#A78BFA 45%,#FF006E 100%)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
             }}>FORTUNE WHEEL</h1>
-            <p className="text-[9px] tracking-[0.4em] mt-0.5 uppercase" style={{ color: "rgba(255,255,255,0.2)" }}>Spin &amp; Win</p>
+            <p className="hidden sm:block text-[9px] tracking-[0.4em] mt-0.5 uppercase" style={{ color: "rgba(255,255,255,0.2)" }}>Spin &amp; Win</p>
           </div>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <button onClick={() => setShowHistory(!showHistory)} title="Winner history"
-            className="relative p-2.5 rounded-xl border transition-all duration-300"
+            className="relative p-2 sm:p-2.5 rounded-xl border transition-all duration-300"
             style={showHistory
               ? { background: "rgba(124,58,237,0.2)", border: "1px solid rgba(167,139,250,0.4)", color: "#A78BFA" }
               : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.35)" }}>
@@ -202,12 +202,12 @@ export default function WheelSelectorPage() {
             )}
           </button>
           <button onClick={handleReset} title="Reset"
-            className="p-2.5 rounded-xl border transition-all duration-300"
+            className="p-2 sm:p-2.5 rounded-xl border transition-all duration-300"
             style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.35)" }}>
             <RotateCcw className="w-4 h-4" />
           </button>
           <button onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-2.5 rounded-xl border transition-all duration-300"
+            className="p-2 sm:p-2.5 rounded-xl border transition-all duration-300"
             style={soundEnabled
               ? { background: "rgba(0,245,255,0.1)", border: "1px solid rgba(0,245,255,0.3)", color: "#67e8f9" }
               : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.35)" }}>

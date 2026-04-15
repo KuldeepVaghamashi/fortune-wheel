@@ -71,9 +71,51 @@ export function SpinningWheel({
     const cy = size / 2;
     const r = size / 2 - 40;
 
-    const animate = () => {
+    const isMobile = window.innerWidth < 768;
+
+    // On mobile: skip the glow canvas entirely when not spinning — saves a full RAF loop
+    // On mobile during spin: draw only a single lightweight pulsing ring
+    // On desktop: full orbiting orbs + 3 rings + center pulse
+    let lastFrameTime = 0;
+    const targetInterval = isMobile ? 66 : 16; // ~15fps mobile, ~60fps desktop
+
+    const animate = (timestamp: number) => {
+      glowAnimationRef.current = requestAnimationFrame(animate);
+
+      if (timestamp - lastFrameTime < targetInterval) return;
+      lastFrameTime = timestamp;
+
       timeRef.current += 0.018;
       ctx.clearRect(0, 0, size, size);
+
+      if (isMobile) {
+        // ── Mobile: single simple ring + center pulse during spin ──
+        const rr = r + 22;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rr, 0, Math.PI * 2);
+        ctx.strokeStyle = "#00F0FF";
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = (isSpinning ? 0.55 : 0.18) * (0.7 + Math.sin(timeRef.current * 2) * 0.3);
+        ctx.setLineDash([16, 8]);
+        ctx.lineDashOffset = timeRef.current * 45;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+
+        if (isSpinning) {
+          const ps = r * 0.35 + Math.sin(timeRef.current * 3.5) * 12;
+          const cg = ctx.createRadialGradient(cx, cy, 0, cx, cy, ps);
+          cg.addColorStop(0, "rgba(0,240,255,0.2)");
+          cg.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(cx, cy, ps, 0, Math.PI * 2);
+          ctx.fillStyle = cg;
+          ctx.fill();
+        }
+        return;
+      }
+
+      // ── Desktop: full animation ──
 
       // Rotating dashed rings
       for (let i = 0; i < 3; i++) {
@@ -98,8 +140,8 @@ export function SpinningWheel({
         const ox = cx + Math.cos(angle) * orbR;
         const oy = cy + Math.sin(angle) * orbR;
         const os = 3 + Math.sin(timeRef.current * 2 + i) * 1.5;
-        const colors = ["#00F0FF", "#A29BFE", "#FD79A8", "#55EFC4", "#FDCB6E"];
-        const color = colors[i % colors.length];
+        const orbColors = ["#00F0FF", "#A29BFE", "#FD79A8", "#55EFC4", "#FDCB6E"];
+        const color = orbColors[i % orbColors.length];
 
         const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, os * 5);
         g.addColorStop(0, color);
@@ -131,11 +173,9 @@ export function SpinningWheel({
         ctx.fillStyle = cg;
         ctx.fill();
       }
-
-      glowAnimationRef.current = requestAnimationFrame(animate);
     };
 
-    animate();
+    glowAnimationRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(glowAnimationRef.current);
   }, [isSpinning]);
 
@@ -495,13 +535,14 @@ export function SpinningWheel({
       className="w-full"
       style={{ height: `${Math.round(500 * cssScale)}px` }}
     >
+    <div style={{ width: "100%", display: "flex", justifyContent: "center", overflow: "hidden" }}>
     <div
       className="relative flex items-center justify-center"
       style={{
         transform: `scale(${cssScale})`,
         transformOrigin: "top center",
         width: 500,
-        margin: "0 auto",
+        flexShrink: 0,
       }}
     >
       {/* Ambient glow layer */}
@@ -556,6 +597,7 @@ export function SpinningWheel({
           />
         )}
       </div>
+    </div>
     </div>
     </div>
   );
