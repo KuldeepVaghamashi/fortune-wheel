@@ -20,14 +20,16 @@ interface SpinningWheelProps {
 }
 
 const SEGMENT_COLORS = [
-  { from: "#FF6B6B", to: "#C0392B", glow: "#FF7675" },
-  { from: "#A29BFE", to: "#6C5CE7", glow: "#A29BFE" },
-  { from: "#55EFC4", to: "#00B894", glow: "#00CEC9" },
-  { from: "#FD79A8", to: "#D63031", glow: "#FD79A8" },
-  { from: "#FDCB6E", to: "#E17055", glow: "#FDCB6E" },
-  { from: "#74B9FF", to: "#0984E3", glow: "#74B9FF" },
-  { from: "#00F0FF", to: "#00B8D4", glow: "#00F0FF" },
-  { from: "#81ECEC", to: "#00CEC9", glow: "#81ECEC" },
+  { from: "#FF3CAC", to: "#784BA0", glow: "#FF3CAC" },
+  { from: "#21D4FD", to: "#B721FF", glow: "#21D4FD" },
+  { from: "#00F0FF", to: "#0066FF", glow: "#00F0FF" },
+  { from: "#FEE140", to: "#FA709A", glow: "#FEE140" },
+  { from: "#43E97B", to: "#38F9D7", glow: "#43E97B" },
+  { from: "#F953C6", to: "#B91D73", glow: "#F953C6" },
+  { from: "#4FACFE", to: "#00F2FE", glow: "#4FACFE" },
+  { from: "#FA8231", to: "#FF4757", glow: "#FA8231" },
+  { from: "#A18CD1", to: "#FBC2EB", glow: "#A18CD1" },
+  { from: "#96FBC4", to: "#F9F586", glow: "#96FBC4" },
 ];
 
 export function SpinningWheel({

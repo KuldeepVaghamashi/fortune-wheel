@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Volume2, VolumeX, RotateCcw, History, Trophy, X, Crown } from "lucide-react";
+import { Volume2, VolumeX, RotateCcw, History, X, Crown, Zap, Trophy } from "lucide-react";
 import { ParticleBackground } from "@/components/particle-background";
 import { SpinningWheel } from "@/components/spinning-wheel";
 import { ParticipantPanel } from "@/components/participant-panel";
@@ -56,15 +56,12 @@ export default function WheelSelectorPage() {
   const [spinError, setSpinError] = useState("");
   const [isSpinRequestPending, setIsSpinRequestPending] = useState(false);
   const [showWinnerBanner, setShowWinnerBanner] = useState(false);
-  // Round-based fairness: tracks who has already won in the current round.
-  // Everyone wins once before anyone can win again — prevents repeated winners.
   const [roundWinnerIds, setRoundWinnerIds] = useState<string[]>([]);
 
   const initializedRef = useRef(false);
   const lastHandledSpinRef = useRef("");
   const skipNextPersistRef = useRef(false);
 
-  // Load participants on mount
   useEffect(() => {
     fetch("/api/participants")
       .then((r) => r.json())
@@ -76,13 +73,9 @@ export default function WheelSelectorPage() {
       });
   }, []);
 
-  // Persist participants with debounce
   useEffect(() => {
     if (!initializedRef.current) return;
-    if (skipNextPersistRef.current) {
-      skipNextPersistRef.current = false;
-      return;
-    }
+    if (skipNextPersistRef.current) { skipNextPersistRef.current = false; return; }
     const t = setTimeout(async () => {
       await fetch("/api/participants", {
         method: "PUT",
@@ -98,11 +91,7 @@ export default function WheelSelectorPage() {
     setShowWinnerBanner(true);
     setShowConfetti(true);
     setIsSpinRequestPending(false);
-    setWinnerHistory((prev) => [
-      { name: winner.name, timestamp: new Date() },
-      ...prev.slice(0, 9),
-    ]);
-    // Record this winner in the current round
+    setWinnerHistory((prev) => [{ name: winner.name, timestamp: new Date() }, ...prev.slice(0, 9)]);
     setRoundWinnerIds((prev) => [...prev, winner.id]);
     setTimeout(() => setShowConfetti(false), 6000);
   }, []);
@@ -123,20 +112,10 @@ export default function WheelSelectorPage() {
     setShowWinnerBanner(false);
     setIsSpinRequestPending(true);
 
-    // Round-based fairness: compute which IDs to exclude this spin.
-    // Only eligible (included + weight > 0) participants count toward the round.
-    const eligibleIds = participants
-      .filter((p) => p.included && p.weight > 0)
-      .map((p) => p.id);
-
+    const eligibleIds = participants.filter((p) => p.included && p.weight > 0).map((p) => p.id);
     const wonThisRound = roundWinnerIds.filter((id) => eligibleIds.includes(id));
     const allWon = eligibleIds.length > 0 && wonThisRound.length >= eligibleIds.length;
-
-    if (allWon) {
-      // Everyone has won once — start a fresh round, no exclusions this spin
-      setRoundWinnerIds([]);
-    }
-
+    if (allWon) setRoundWinnerIds([]);
     const excludeIds = allWon ? [] : wonThisRound;
 
     const res = await fetch("/api/spin", {
@@ -150,11 +129,7 @@ export default function WheelSelectorPage() {
       return;
     }
     const data = (await res.json()) as SpinApiResponse;
-    if (data.error) {
-      setIsSpinRequestPending(false);
-      setSpinError(data.error);
-      return;
-    }
+    if (data.error) { setIsSpinRequestPending(false); setSpinError(data.error); return; }
     if (data.timestamp !== lastHandledSpinRef.current) {
       lastHandledSpinRef.current = data.timestamp;
       setSpinWinnerId(data.winnerId);
@@ -167,110 +142,111 @@ export default function WheelSelectorPage() {
   const isBusy = isSpinning || isSpinRequestPending;
 
   return (
-    <main className="relative min-h-screen bg-[#050508] overflow-hidden text-white">
+    <main className="relative min-h-screen overflow-hidden text-white" style={{ background: "#020208" }}>
       <ParticleBackground />
 
-      {/* Background gradient layers */}
-      <div className="fixed inset-0 pointer-events-none z-[1]">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_-10%,rgba(0,240,255,0.08),transparent)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_110%,rgba(123,97,255,0.1),transparent)]" />
-        <div className="absolute top-0 left-0 w-96 h-96 bg-[radial-gradient(circle,rgba(0,240,255,0.04),transparent)]" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[radial-gradient(circle,rgba(253,121,168,0.05),transparent)]" />
+      {/* ── Atmospheric depth ── */}
+      <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 1 }}>
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 130% 70% at 50% -15%, rgba(0,220,255,0.07) 0%, transparent 60%)" }} />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 70% 110% at -8% 55%, rgba(100,50,255,0.08) 0%, transparent 55%)" }} />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 70% at 108% 95%, rgba(255,0,100,0.07) 0%, transparent 55%)" }} />
+        <div className="absolute inset-0" style={{
+          backgroundImage: "linear-gradient(rgba(0,210,255,0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(0,210,255,0.022) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+        }} />
       </div>
 
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <header className="relative z-10 flex items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-white/[0.06] backdrop-blur-sm">
-        {/* Logo + Title */}
+      {/* ── Header ── */}
+      <header className="relative z-10 flex items-center justify-between px-5 sm:px-8 py-3.5" style={{
+        borderBottom: "1px solid rgba(255,255,255,0.045)",
+        background: "rgba(2,2,10,0.75)",
+        backdropFilter: "blur(28px)",
+      }}>
+        {/* Brand */}
         <div className="flex items-center gap-3">
           <div className="relative shrink-0">
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-500 to-violet-600 blur-xl opacity-60" />
-            <div className="relative w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-violet-600/20 border border-cyan-400/30 flex items-center justify-center">
-              <svg className="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke="#00F0FF" strokeWidth="1.5" />
-                <path d="M12 3 L12 21 M3 12 L21 12" stroke="#00F0FF" strokeWidth="1" opacity="0.5" />
-                <circle cx="12" cy="12" r="3" fill="#00F0FF" />
-                <polygon points="12,3 10,7 14,7" fill="#A29BFE" />
+            <div className="absolute inset-0 rounded-2xl" style={{ background: "linear-gradient(135deg,#00F5FF,#7C3AED)", filter: "blur(12px)", opacity: 0.55 }} />
+            <div className="relative flex items-center justify-center rounded-2xl" style={{ width: 44, height: 44, background: "linear-gradient(135deg,rgba(0,245,255,0.12),rgba(124,58,237,0.12))", border: "1px solid rgba(0,245,255,0.28)" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="#00F5FF" strokeWidth="1.5" opacity="0.55" />
+                <circle cx="12" cy="12" r="4.5" stroke="#A78BFA" strokeWidth="1.5" />
+                <circle cx="12" cy="12" r="1.8" fill="#00F5FF" />
+                <line x1="12" y1="2" x2="12" y2="7.5" stroke="#00F5FF" strokeWidth="2" strokeLinecap="round" />
+                <line x1="12" y1="16.5" x2="12" y2="22" stroke="#00F5FF" strokeWidth="2" strokeLinecap="round" />
+                <line x1="2" y1="12" x2="7.5" y2="12" stroke="#A78BFA" strokeWidth="2" strokeLinecap="round" />
+                <line x1="16.5" y1="12" x2="22" y2="12" stroke="#A78BFA" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </div>
           </div>
           <div>
-            <h1
-              className="font-[family-name:var(--font-orbitron)] text-base sm:text-xl font-black tracking-wider sm:tracking-widest"
-              style={{
-                background: "linear-gradient(90deg,#00F0FF,#A29BFE,#FD79A8)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              FORTUNE WHEEL
-            </h1>
-            <p className="text-[9px] sm:text-[10px] text-white/30 tracking-[0.2em] sm:tracking-[0.25em] uppercase">Spin &amp; Win</p>
+            <h1 className="font-[family-name:var(--font-orbitron)] font-black tracking-[0.13em] leading-none text-lg sm:text-xl" style={{
+              background: "linear-gradient(90deg,#00F5FF 0%,#A78BFA 45%,#FF006E 100%)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            }}>FORTUNE WHEEL</h1>
+            <p className="text-[9px] tracking-[0.4em] mt-0.5 uppercase" style={{ color: "rgba(255,255,255,0.2)" }}>Spin &amp; Win</p>
           </div>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className={`relative p-2.5 rounded-xl border transition-all ${
-              showHistory
-                ? "bg-violet-500/20 text-violet-300 border-violet-400/30"
-                : "bg-white/5 text-white/50 hover:text-white hover:bg-white/10 border-white/10"
-            }`}
-            title="Winner history"
-          >
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <button onClick={() => setShowHistory(!showHistory)} title="Winner history"
+            className="relative p-2.5 rounded-xl border transition-all duration-300"
+            style={showHistory
+              ? { background: "rgba(124,58,237,0.2)", border: "1px solid rgba(167,139,250,0.4)", color: "#A78BFA" }
+              : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.35)" }}>
             <History className="w-4 h-4" />
             {winnerHistory.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-violet-500 rounded-full text-[9px] font-bold flex items-center justify-center">
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-0.5 bg-violet-500 rounded-full text-[9px] font-bold flex items-center justify-center" style={{ boxShadow: "0 0 8px rgba(124,58,237,0.9)" }}>
                 {winnerHistory.length}
               </span>
             )}
           </button>
-          <button
-            onClick={handleReset}
-            className="p-2.5 rounded-xl bg-white/5 text-white/50 hover:text-white hover:bg-white/10 border border-white/10 transition-all"
-            title="Reset"
-          >
+          <button onClick={handleReset} title="Reset"
+            className="p-2.5 rounded-xl border transition-all duration-300"
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.35)" }}>
             <RotateCcw className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className={`p-2.5 rounded-xl border transition-all ${
-              soundEnabled
-                ? "bg-cyan-500/15 text-cyan-300 border-cyan-400/25"
-                : "bg-white/5 text-white/50 hover:text-white hover:bg-white/10 border-white/10"
-            }`}
-          >
+          <button onClick={() => setSoundEnabled(!soundEnabled)}
+            className="p-2.5 rounded-xl border transition-all duration-300"
+            style={soundEnabled
+              ? { background: "rgba(0,245,255,0.1)", border: "1px solid rgba(0,245,255,0.3)", color: "#67e8f9" }
+              : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.35)" }}>
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
         </div>
       </header>
 
-      {/* ── History panel ──────────────────────────────────────────── */}
+      {/* ── History panel ── */}
       {showHistory && (
-        <div className="absolute top-[72px] right-6 z-40 w-72 rounded-2xl border border-white/10 bg-black/70 backdrop-blur-xl p-4 shadow-2xl">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-[family-name:var(--font-orbitron)] text-xs font-bold text-white/70 flex items-center gap-2">
-              <Trophy className="w-3.5 h-3.5 text-yellow-400" /> Recent Winners
+        <div className="absolute right-5 sm:right-8 z-40 w-72 rounded-2xl overflow-hidden" style={{
+          top: 72,
+          background: "rgba(4,4,14,0.94)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          backdropFilter: "blur(28px)",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.04)",
+        }}>
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <h3 className="font-[family-name:var(--font-orbitron)] text-[11px] font-bold tracking-[0.12em] flex items-center gap-2" style={{ color: "rgba(255,255,255,0.55)" }}>
+              <Trophy className="w-3.5 h-3.5 text-yellow-400" /> RECENT WINNERS
             </h3>
-            <button onClick={() => setShowHistory(false)} className="text-white/30 hover:text-white/70">
+            <button onClick={() => setShowHistory(false)} className="transition-colors" style={{ color: "rgba(255,255,255,0.2)" }}>
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
           {winnerHistory.length === 0 ? (
-            <p className="text-white/30 text-xs text-center py-4">No spins yet</p>
+            <p className="text-center py-7 text-xs" style={{ color: "rgba(255,255,255,0.18)" }}>No spins yet</p>
           ) : (
-            <div className="space-y-1.5 max-h-56 overflow-y-auto">
+            <div className="p-2 space-y-1 max-h-64 overflow-y-auto">
               {winnerHistory.map((item, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 border border-white/[0.07]"
-                >
+                <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{
+                  background: i === 0 ? "rgba(255,215,0,0.07)" : "rgba(255,255,255,0.03)",
+                  border: i === 0 ? "1px solid rgba(255,215,0,0.18)" : "1px solid rgba(255,255,255,0.05)",
+                }}>
                   <div className="flex items-center gap-2">
-                    {i === 0 && <Crown className="w-3 h-3 text-yellow-400" />}
-                    <span className="text-sm font-medium text-white/85 truncate">{item.name}</span>
+                    {i === 0 && <Crown className="w-3 h-3 shrink-0" style={{ color: "#FFD700", filter: "drop-shadow(0 0 4px #FFD700)" }} />}
+                    <span className="text-sm font-medium truncate" style={{ color: i === 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.55)" }}>{item.name}</span>
                   </div>
-                  <span className="text-white/35 text-[11px] shrink-0 ml-2">
+                  <span className="text-[11px] shrink-0 ml-2" style={{ color: "rgba(255,255,255,0.22)" }}>
                     {item.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
@@ -280,173 +256,216 @@ export default function WheelSelectorPage() {
         </div>
       )}
 
-      {/* ── Main layout ────────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-14 px-4 sm:px-6 py-6 min-h-[calc(100vh-60px)] sm:min-h-[calc(100vh-72px)]">
+      {/* ── Main layout ── */}
+      <div className="relative z-10 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 lg:gap-12 xl:gap-20 px-4 sm:px-6 lg:px-10 py-8 sm:py-10 min-h-[calc(100vh-68px)]">
 
-        {/* Left: Wheel + controls */}
-        <div className="flex flex-col items-center gap-4 sm:gap-5 w-full max-w-[500px] lg:max-w-none">
+        {/* ── Left: Wheel + Controls ── */}
+        <div className="flex flex-col items-center gap-5 sm:gap-6 w-full max-w-[520px] shrink-0">
 
-          {/* Title above wheel */}
-          <div className="text-center">
-            <p className="text-[10px] sm:text-xs text-white/30 tracking-[0.3em] sm:tracking-[0.4em] uppercase mb-1">Ready to spin?</p>
-            <h2
-              className="font-[family-name:var(--font-orbitron)] text-2xl sm:text-3xl font-black tracking-wide"
-              style={{
-                background: "linear-gradient(90deg,#00F0FF 0%,#A29BFE 50%,#FD79A8 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              SPIN THE WHEEL
+          {/* Title */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full" style={{ background: "rgba(0,245,255,0.05)", border: "1px solid rgba(0,245,255,0.14)" }}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isBusy ? "bg-amber-400" : "bg-emerald-400"} animate-pulse`} />
+              <span className="text-[10px] tracking-[0.28em] uppercase font-medium" style={{ color: "rgba(0,245,255,0.65)" }}>
+                {isBusy ? "Spinning…" : activeCount > 0 ? `${activeCount} players ready` : "Add participants"}
+              </span>
+            </div>
+            <h2 className="font-[family-name:var(--font-orbitron)] font-black tracking-wide leading-[1.08]" style={{ fontSize: "clamp(2rem,5vw,2.75rem)" }}>
+              <span style={{ background: "linear-gradient(180deg,#fff 0%,rgba(255,255,255,0.6) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                SPIN THE{" "}
+              </span>
+              <span style={{ background: "linear-gradient(90deg,#00F5FF 0%,#A78BFA 50%,#FF006E 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                WHEEL
+              </span>
             </h2>
           </div>
 
-          {/* Wheel */}
-          <SpinningWheel
-            participants={participants}
-            onSpinComplete={handleSpinComplete}
-            isSpinning={isSpinning}
-            setIsSpinning={setIsSpinning}
-            spinWinnerId={spinWinnerId}
-            spinWinnerName={spinWinnerName}
-            spinNonce={spinNonce}
-          />
+          {/* ── Wheel with atmosphere ── */}
+          <div className="relative flex items-center justify-center w-full" style={{ minHeight: 320 }}>
 
-          {/* Winner banner */}
-          <div
-            className={`w-full max-w-[500px] transition-all duration-500 ${
-              showWinnerBanner && lastWinner
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-3 pointer-events-none"
-            }`}
-          >
-            <div
-              className="relative rounded-2xl px-6 py-4 text-center overflow-hidden border border-yellow-400/30"
-              style={{
-                background: "linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,150,0,0.08))",
-                boxShadow: "0 0 30px rgba(255,215,0,0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
-              }}
-            >
-              <div className="flex items-center justify-center gap-3">
-                <Crown className="w-5 h-5 text-yellow-400" style={{ filter: "drop-shadow(0 0 6px rgba(255,215,0,0.8))" }} />
-                <div>
-                  <p className="text-[10px] text-yellow-300/60 tracking-[0.3em] uppercase">Winner</p>
-                  <p
-                    className="font-[family-name:var(--font-orbitron)] text-2xl font-black"
-                    style={{
-                      background: "linear-gradient(90deg,#FFD700,#FFA500)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      filter: "drop-shadow(0 0 12px rgba(255,215,0,0.4))",
-                    }}
-                  >
+            {/* Deep ambient glow */}
+            <div className="absolute rounded-full pointer-events-none" style={{
+              width: 640, height: 640,
+              background: isSpinning
+                ? "radial-gradient(circle, rgba(0,245,255,0.14) 0%, rgba(124,58,237,0.08) 38%, transparent 65%)"
+                : showWinnerBanner
+                ? "radial-gradient(circle, rgba(255,200,0,0.13) 0%, rgba(255,100,0,0.05) 40%, transparent 65%)"
+                : "radial-gradient(circle, rgba(0,245,255,0.055) 0%, transparent 55%)",
+              transition: "background 1.4s ease",
+              transform: "translate(-50%,-50%)", left: "50%", top: "50%",
+            }} />
+
+            {/* Spinning conic ring during spin */}
+            {isSpinning && (
+              <div className="absolute rounded-full pointer-events-none" style={{
+                width: 556, height: 556,
+                background: "conic-gradient(transparent 0deg, rgba(0,245,255,0.07) 60deg, transparent 120deg, rgba(167,139,250,0.07) 180deg, transparent 240deg, rgba(255,0,110,0.07) 300deg, transparent 360deg)",
+                animation: "spin-ring 4s linear infinite",
+                transform: "translate(-50%,-50%)", left: "50%", top: "50%",
+              }} />
+            )}
+
+            {/* Winner gold ring */}
+            {showWinnerBanner && lastWinner && !isSpinning && (
+              <div className="absolute rounded-full pointer-events-none" style={{
+                width: 530, height: 530,
+                border: "2px solid rgba(255,215,0,0.25)",
+                boxShadow: "0 0 40px rgba(255,200,0,0.18), inset 0 0 40px rgba(255,200,0,0.06)",
+                animation: "glow-pulse 2s ease-in-out infinite",
+                transform: "translate(-50%,-50%)", left: "50%", top: "50%",
+              }} />
+            )}
+
+            <SpinningWheel
+              participants={participants}
+              onSpinComplete={handleSpinComplete}
+              isSpinning={isSpinning}
+              setIsSpinning={setIsSpinning}
+              spinWinnerId={spinWinnerId}
+              spinWinnerName={spinWinnerName}
+              spinNonce={spinNonce}
+            />
+          </div>
+
+          {/* ── Winner banner ── */}
+          <div className={`w-full transition-all duration-700 ${showWinnerBanner && lastWinner ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-4 scale-95 pointer-events-none"}`}>
+            <div className="relative rounded-2xl overflow-hidden" style={{
+              background: "linear-gradient(135deg,rgba(255,215,0,0.09),rgba(255,120,0,0.06),rgba(255,215,0,0.09))",
+              border: "1px solid rgba(255,215,0,0.24)",
+              boxShadow: "0 0 60px rgba(255,180,0,0.14), 0 20px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)",
+            }}>
+              {/* Animated gold shimmer */}
+              <div className="absolute inset-0 pointer-events-none" style={{
+                background: "linear-gradient(90deg,transparent 0%,rgba(255,215,0,0.1) 50%,transparent 100%)",
+                backgroundSize: "200% 100%",
+                animation: "shimmer-gold 2.5s linear infinite",
+              }} />
+              <div className="relative px-6 py-5 flex items-center justify-center gap-4">
+                <Crown className="w-7 h-7 shrink-0" style={{ color: "#FFD700", filter: "drop-shadow(0 0 14px rgba(255,215,0,0.95))" }} />
+                <div className="text-center">
+                  <p className="text-[9px] tracking-[0.5em] uppercase mb-1.5" style={{ color: "rgba(255,215,0,0.45)" }}>Winner</p>
+                  <p className="font-[family-name:var(--font-orbitron)] font-black" style={{
+                    fontSize: "clamp(1.6rem,5vw,2.2rem)",
+                    background: "linear-gradient(90deg,#FFD700 0%,#FFA500 35%,#FFD700 65%,#FFA500 100%)",
+                    backgroundSize: "200% auto",
+                    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                    animation: "shimmer-gold 2s linear infinite",
+                    filter: "drop-shadow(0 0 24px rgba(255,180,0,0.45))",
+                  }}>
                     {lastWinner}
                   </p>
                 </div>
-                <Crown className="w-5 h-5 text-yellow-400" style={{ filter: "drop-shadow(0 0 6px rgba(255,215,0,0.8))" }} />
+                <Crown className="w-7 h-7 shrink-0" style={{ color: "#FFD700", filter: "drop-shadow(0 0 14px rgba(255,215,0,0.95))" }} />
               </div>
-              <button
-                onClick={() => setShowWinnerBanner(false)}
-                className="absolute top-2 right-2 text-white/20 hover:text-white/60 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
+              <button onClick={() => setShowWinnerBanner(false)} className="absolute top-2.5 right-2.5 transition-colors" style={{ color: "rgba(255,255,255,0.18)" }}>
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Spin button */}
-          <button
-            onClick={triggerSpin}
-            disabled={isBusy || activeCount === 0}
-            className="relative group w-full overflow-hidden rounded-2xl font-[family-name:var(--font-orbitron)] text-base sm:text-lg font-black py-4 sm:py-5 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{
-              background: isBusy
-                ? "linear-gradient(135deg,#111122,#1a1a30)"
-                : "linear-gradient(135deg,#00F0FF 0%,#7B61FF 50%,#FD79A8 100%)",
-              boxShadow:
-                !isBusy && activeCount > 0
-                  ? "0 0 35px rgba(0,240,255,0.35), 0 0 70px rgba(123,97,255,0.18), 0 8px 32px rgba(0,0,0,0.4)"
-                  : "none",
-              transform: !isBusy && activeCount > 0 ? undefined : undefined,
-            }}
-          >
-            {/* Shimmer sweep */}
+          {/* ── Spin button ── */}
+          <div className="relative w-full" style={{ isolation: "isolate" }}>
+            {/* Animated glow border when ready */}
             {!isBusy && activeCount > 0 && (
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+              <div className="absolute rounded-[18px] pointer-events-none" style={{
+                inset: -2,
+                background: "linear-gradient(135deg,#00F5FF,#7C3AED,#FF006E,#7C3AED,#00F5FF)",
+                backgroundSize: "300% 300%",
+                animation: "shimmer-gold 3s linear infinite, btn-glow-pulse 2s ease-in-out infinite",
+                filter: "blur(5px)",
+                zIndex: -1,
+              }} />
             )}
-
-            <span
-              className={`relative flex items-center justify-center gap-3 ${
-                isBusy ? "text-white/50" : "text-black"
-              }`}
+            <button
+              onClick={triggerSpin}
+              disabled={isBusy || activeCount === 0}
+              className="relative w-full overflow-hidden font-[family-name:var(--font-orbitron)] font-black tracking-[0.14em] transition-all duration-300 disabled:opacity-20 disabled:cursor-not-allowed group"
+              style={{
+                borderRadius: 16,
+                padding: "22px 24px",
+                fontSize: "clamp(15px,2.5vw,18px)",
+                background: isBusy
+                  ? "linear-gradient(135deg,#0c0c20,#16162e)"
+                  : "linear-gradient(135deg,#00F5FF 0%,#7C3AED 45%,#FF006E 100%)",
+                boxShadow: !isBusy && activeCount > 0
+                  ? "0 8px 36px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.18)"
+                  : "0 4px 16px rgba(0,0,0,0.4)",
+              }}
             >
-              {isBusy ? (
-                <>
-                  <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  SPINNING…
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2a10 10 0 1 0 10 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                    <path d="M22 2l-4 4 4 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  SPIN THE WHEEL
-                </>
+              {/* Hover shimmer sweep */}
+              {!isBusy && activeCount > 0 && (
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" style={{
+                  background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent)",
+                }} />
               )}
-            </span>
-          </button>
-
-          {/* Status line */}
-          <div className="text-sm min-h-[20px] flex items-center gap-2">
-            {activeCount === 0 ? (
-              <span className="text-rose-400/70 text-xs">Add at least one participant</span>
-            ) : isBusy ? (
-              <span className="text-cyan-400/70 text-xs animate-pulse">Selecting winner…</span>
-            ) : (
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-white/35 text-xs">
-                  {activeCount} participant{activeCount !== 1 ? "s" : ""} ready
-                </span>
-              </>
-            )}
+              <span
+                className={`relative flex items-center justify-center gap-3 select-none ${isBusy ? "text-white/25" : "text-white"}`}
+                style={{ textShadow: !isBusy && activeCount > 0 ? "0 0 24px rgba(255,255,255,0.45)" : "none" }}
+              >
+                {isBusy ? (
+                  <>
+                    <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    SPINNING…
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-5 h-5 shrink-0" style={{ filter: "drop-shadow(0 0 6px rgba(255,255,255,0.7))" }} />
+                    SPIN THE WHEEL
+                    <Zap className="w-5 h-5 shrink-0" style={{ filter: "drop-shadow(0 0 6px rgba(255,255,255,0.7))" }} />
+                  </>
+                )}
+              </span>
+            </button>
           </div>
 
-          {spinError && (
-            <div className="rounded-xl border border-rose-400/25 bg-rose-500/8 px-4 py-2 text-sm text-rose-300 text-center max-w-sm">
-              {spinError}
-            </div>
-          )}
+          {/* Status + error */}
+          <div className="min-h-[18px] flex items-center justify-center gap-2">
+            {spinError ? (
+              <span className="text-xs text-rose-300/80">{spinError}</span>
+            ) : activeCount === 0 ? (
+              <span className="text-xs" style={{ color: "rgba(251,113,133,0.55)" }}>Add at least one participant to get started</span>
+            ) : isBusy ? (
+              <span className="text-xs tracking-wide animate-pulse" style={{ color: "rgba(0,245,255,0.45)" }}>Selecting winner…</span>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" style={{ boxShadow: "0 0 6px #34d399" }} />
+                <span className="text-xs tracking-wide" style={{ color: "rgba(255,255,255,0.22)" }}>
+                  {activeCount} participant{activeCount !== 1 ? "s" : ""} ready to spin
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right: Participant panel */}
-        <div
-          className="w-full max-w-[500px] lg:max-w-sm lg:w-auto rounded-3xl p-1"
-          style={{
-            background: "linear-gradient(135deg,rgba(16,16,26,0.75),rgba(22,22,36,0.55))",
+        {/* ── Right: Participant panel ── */}
+        <div className="w-full max-w-[500px] lg:max-w-[380px] lg:sticky lg:top-8 shrink-0">
+          <div className="relative rounded-3xl overflow-hidden" style={{
+            background: "linear-gradient(145deg,rgba(7,7,18,0.88),rgba(11,11,26,0.78))",
             border: "1px solid rgba(255,255,255,0.07)",
-            boxShadow: "0 16px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
-            backdropFilter: "blur(24px)",
-          }}
-        >
-          <ParticipantPanel
-            participants={participants}
-            setParticipants={setParticipants}
-            showAdmin={false}
-            setShowAdmin={() => undefined}
-            allowAdminControls={false}
-          />
+            boxShadow: "0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(0,245,255,0.035)",
+            backdropFilter: "blur(32px)",
+          }}>
+            {/* Corner glows */}
+            <div className="absolute top-0 right-0 w-48 h-48 pointer-events-none" style={{ background: "radial-gradient(circle,rgba(0,245,255,0.06),transparent 70%)" }} />
+            <div className="absolute bottom-0 left-0 w-36 h-36 pointer-events-none" style={{ background: "radial-gradient(circle,rgba(124,58,237,0.07),transparent 70%)" }} />
+            <ParticipantPanel
+              participants={participants}
+              setParticipants={setParticipants}
+              showAdmin={false}
+              setShowAdmin={() => undefined}
+              allowAdminControls={false}
+            />
+          </div>
         </div>
       </div>
 
       <Confetti active={showConfetti} />
 
-      {/* Bottom fade */}
-      <div className="fixed bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-[#050508] to-transparent pointer-events-none z-[1]" />
+      {/* Bottom vignette */}
+      <div className="fixed bottom-0 left-0 right-0 h-24 pointer-events-none" style={{ zIndex: 1, background: "linear-gradient(to top,rgba(2,2,8,0.85),transparent)" }} />
     </main>
   );
 }
