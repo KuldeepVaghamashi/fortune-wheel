@@ -54,6 +54,11 @@ export function SpinningWheel({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [cssScale, setCssScale] = useState(1);
 
+  // Offscreen canvas cache — segments are drawn once and reused every frame via drawImage (O(1))
+  const offscreenRef = useRef<HTMLCanvasElement | null>(null);
+  const cacheKeyRef = useRef("");
+  const offscreenSizeRef = useRef(0);
+
   const activeParticipants = participants.filter((p) => p.included && p.weight > 0);
   const totalWeight = activeParticipants.reduce((sum, p) => sum + p.weight, 0);
 
@@ -200,112 +205,123 @@ export function SpinningWheel({
         return;
       }
 
-      // ── Rotated segment group ──────────────────────────────────────
+      // ── Offscreen segment cache ──────────────────────────────────────
+      // Rebuild ONLY when participants or size change — otherwise reuse.
+      // This turns per-frame O(n) gradient/text draws into a single O(1) drawImage.
+      const skipShimmer = activeParticipants.length >= 15;
+      const cacheKey = `${activeParticipants.length}_${totalWeight.toFixed(3)}_${activeParticipants[0]?.id ?? "none"}_${size}`;
+
+      if (cacheKey !== cacheKeyRef.current || offscreenSizeRef.current !== size || !offscreenRef.current) {
+        cacheKeyRef.current = cacheKey;
+        offscreenSizeRef.current = size;
+
+        const offscreen = document.createElement("canvas");
+        offscreen.width = size;
+        offscreen.height = size;
+        offscreenRef.current = offscreen;
+        const oc = offscreen.getContext("2d")!;
+
+        let sa = 0;
+
+        // Draw all segments + text onto the offscreen canvas once
+        activeParticipants.forEach((participant, index) => {
+          const segAngle = (participant.weight / totalWeight) * Math.PI * 2;
+          const endAngle = sa + segAngle;
+          const midAngle = sa + segAngle / 2;
+          const colors = SEGMENT_COLORS[index % SEGMENT_COLORS.length];
+
+          const grad = oc.createRadialGradient(cx, cy, radius * 0.15, cx, cy, radius);
+          grad.addColorStop(0, colors.from + "CC");
+          grad.addColorStop(0.55, colors.from);
+          grad.addColorStop(0.88, colors.to);
+          grad.addColorStop(1, colors.to + "BB");
+
+          oc.beginPath();
+          oc.moveTo(cx, cy);
+          oc.arc(cx, cy, radius, sa, endAngle);
+          oc.closePath();
+          oc.fillStyle = grad;
+          oc.fill();
+
+          // Shimmer skipped for 15+ participants — saves n radialGradient calls
+          if (!skipShimmer) {
+            const sx = cx + Math.cos(midAngle) * radius * 0.28;
+            const sy = cy + Math.sin(midAngle) * radius * 0.28;
+            const shimmer = oc.createRadialGradient(sx, sy, 0, sx, sy, radius * 0.45);
+            shimmer.addColorStop(0, "rgba(255,255,255,0.18)");
+            shimmer.addColorStop(1, "transparent");
+            oc.beginPath();
+            oc.moveTo(cx, cy);
+            oc.arc(cx, cy, radius, sa, endAngle);
+            oc.closePath();
+            oc.fillStyle = shimmer;
+            oc.fill();
+          }
+
+          // Text
+          const textR = radius * 0.66;
+          const arcWidth = textR * segAngle;
+          const fontSize = Math.min(40, Math.max(13, arcWidth / 2.3));
+          const maxW = Math.min(radius * 0.75, arcWidth * 0.82);
+
+          oc.save();
+          oc.translate(cx + Math.cos(midAngle) * textR, cy + Math.sin(midAngle) * textR);
+          oc.rotate(midAngle > Math.PI / 2 && midAngle < (3 * Math.PI) / 2
+            ? midAngle - Math.PI / 2
+            : midAngle + Math.PI / 2);
+          oc.font = `bold ${fontSize}px var(--font-orbitron), sans-serif`;
+          oc.textAlign = "center";
+          oc.textBaseline = "middle";
+
+          let name = participant.name;
+          while (oc.measureText(name).width > maxW && name.length > 1) name = name.slice(0, -1);
+          if (name !== participant.name) name = name.slice(0, -1) + "…";
+
+          oc.lineJoin = "round";
+          oc.lineWidth = Math.max(3, fontSize * 0.14);
+          oc.strokeStyle = "rgba(0,0,0,0.88)";
+          oc.shadowColor = "rgba(0,0,0,0.7)";
+          oc.shadowBlur = 5;
+          oc.shadowOffsetX = 0;
+          oc.shadowOffsetY = 0;
+          oc.strokeText(name, 0, 0);
+          oc.fillStyle = "#ffffff";
+          oc.shadowBlur = 0;
+          oc.fillText(name, 0, 0);
+          oc.restore();
+
+          sa = endAngle;
+        });
+
+        // Batched divider lines — ONE beginPath/stroke for all n lines (vs n separate calls)
+        oc.beginPath();
+        let da = 0;
+        activeParticipants.forEach((participant) => {
+          const segAngle = (participant.weight / totalWeight) * Math.PI * 2;
+          oc.moveTo(cx, cy);
+          oc.lineTo(cx + Math.cos(da) * radius, cy + Math.sin(da) * radius);
+          da += segAngle;
+        });
+        oc.strokeStyle = "rgba(255,255,255,0.35)";
+        oc.lineWidth = 1.5;
+        oc.stroke();
+      }
+
+      // ── Render frame: stamp rotated offscreen cache onto main canvas (O(1)) ──
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate((currentRotation * Math.PI) / 180);
       ctx.translate(-cx, -cy);
+      ctx.drawImage(offscreenRef.current, 0, 0);
 
-      let startAngle = 0;
-      const segmentData: { start: number; end: number }[] = [];
-
-      activeParticipants.forEach((participant, index) => {
-        const segAngle = (participant.weight / totalWeight) * Math.PI * 2;
-        const endAngle = startAngle + segAngle;
-        const midAngle = startAngle + segAngle / 2;
-        const colorIdx = index % SEGMENT_COLORS.length;
-        const colors = SEGMENT_COLORS[colorIdx];
-
-        segmentData.push({ start: startAngle, end: endAngle });
-
-        // Segment gradient
-        const grad = ctx.createRadialGradient(cx, cy, radius * 0.15, cx, cy, radius);
-        grad.addColorStop(0, colors.from + "CC");
-        grad.addColorStop(0.55, colors.from);
-        grad.addColorStop(0.88, colors.to);
-        grad.addColorStop(1, colors.to + "BB");
-
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.arc(cx, cy, radius, startAngle, endAngle);
-        ctx.closePath();
-        ctx.fillStyle = grad;
-        ctx.fill();
-
-        // Inner shimmer
-        const shimmer = ctx.createRadialGradient(
-          cx + Math.cos(midAngle) * radius * 0.28,
-          cy + Math.sin(midAngle) * radius * 0.28,
-          0,
-          cx + Math.cos(midAngle) * radius * 0.28,
-          cy + Math.sin(midAngle) * radius * 0.28,
-          radius * 0.45
-        );
-        shimmer.addColorStop(0, "rgba(255,255,255,0.18)");
-        shimmer.addColorStop(1, "transparent");
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.arc(cx, cy, radius, startAngle, endAngle);
-        ctx.closePath();
-        ctx.fillStyle = shimmer;
-        ctx.fill();
-
-        // Divider lines
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(cx + Math.cos(startAngle) * radius, cy + Math.sin(startAngle) * radius);
-        ctx.strokeStyle = "rgba(255,255,255,0.35)";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Text
-        const textR = radius * 0.66;
-        const tx = cx + Math.cos(midAngle) * textR;
-        const ty = cy + Math.sin(midAngle) * textR;
-
-        ctx.save();
-        ctx.translate(tx, ty);
-        if (midAngle > Math.PI / 2 && midAngle < (3 * Math.PI) / 2) {
-          ctx.rotate(midAngle - Math.PI / 2);
-        } else {
-          ctx.rotate(midAngle + Math.PI / 2);
+      // Winner gold overlay — recomputed from angles only (2 draw calls, no gradients)
+      if (winnerIdx >= 0 && winnerIdx < activeParticipants.length) {
+        let ws = 0;
+        for (let i = 0; i < winnerIdx; i++) {
+          ws += (activeParticipants[i].weight / totalWeight) * Math.PI * 2;
         }
+        const we = ws + (activeParticipants[winnerIdx].weight / totalWeight) * Math.PI * 2;
 
-        // arc width at textR determines how tall the text can be (tangential orientation)
-        const arcWidth = textR * segAngle;
-        const fontSize = Math.min(40, Math.max(13, arcWidth / 2.3));
-        ctx.font = `bold ${fontSize}px var(--font-orbitron), sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-
-        // maxW is the lesser of 75% of radius or 82% of the arc — prevents text overflow on narrow segments
-        const maxW = Math.min(radius * 0.75, arcWidth * 0.82);
-        let name = participant.name;
-        while (ctx.measureText(name).width > maxW && name.length > 1) {
-          name = name.slice(0, -1);
-        }
-        if (name !== participant.name) name = name.slice(0, -1) + "…";
-
-        // Dark stroke outline → readable on any segment color (yellow, cyan, pink…)
-        ctx.lineJoin = "round";
-        ctx.lineWidth = Math.max(3, fontSize * 0.14);
-        ctx.strokeStyle = "rgba(0,0,0,0.88)";
-        ctx.shadowColor = "rgba(0,0,0,0.7)";
-        ctx.shadowBlur = 5;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        ctx.strokeText(name, 0, 0);
-        ctx.fillStyle = "#ffffff";
-        ctx.shadowBlur = 0;
-        ctx.fillText(name, 0, 0);
-        ctx.restore();
-
-        startAngle = endAngle;
-      });
-
-      // Winner segment gold highlight
-      if (winnerIdx >= 0 && winnerIdx < segmentData.length) {
-        const { start: ws, end: we } = segmentData[winnerIdx];
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.arc(cx, cy, radius, ws, we);
