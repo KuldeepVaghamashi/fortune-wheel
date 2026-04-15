@@ -62,7 +62,7 @@ export function ParticleBackground() {
 
     /* ── Particles ── */
     const colors = ["#00F0FF", "#7B61FF", "#FF61DC", "#00FF88", "#4DFFFF", "#A855F7"];
-    const particleCount = isMobile ? 28 : 95;
+    const particleCount = isMobile ? 28 : 65;
 
     particlesRef.current = Array.from({ length: particleCount }, () => ({
       x: Math.random() * canvas.width,
