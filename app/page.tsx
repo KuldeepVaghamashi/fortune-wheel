@@ -142,7 +142,7 @@ export default function WheelSelectorPage() {
   const isBusy = isSpinning || isSpinRequestPending;
 
   return (
-    <main className="relative min-h-screen overflow-hidden text-white" style={{ background: "#020208" }}>
+    <main className="relative min-h-[100dvh] overflow-hidden text-white" style={{ background: "#020208" }}>
       <ParticleBackground />
 
       {/* ── Atmospheric depth ── */}
@@ -218,9 +218,10 @@ export default function WheelSelectorPage() {
 
       {/* ── History panel ── */}
       {showHistory && (
-        <div className="absolute right-5 sm:right-8 z-40 w-72 rounded-2xl overflow-hidden" style={{
+        <div className="fixed right-4 sm:right-8 z-50 rounded-2xl overflow-hidden" style={{
           top: 72,
-          background: "rgba(4,4,14,0.94)",
+          width: "min(288px, calc(100vw - 32px))",
+          background: "rgba(4,4,14,0.97)",
           border: "1px solid rgba(255,255,255,0.08)",
           backdropFilter: "blur(28px)",
           boxShadow: "0 24px 64px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.04)",
@@ -257,20 +258,20 @@ export default function WheelSelectorPage() {
       )}
 
       {/* ── Main layout ── */}
-      <div className="relative z-10 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 lg:gap-12 xl:gap-20 px-4 sm:px-6 lg:px-10 py-8 sm:py-10 min-h-[calc(100vh-68px)]">
+      <div className="relative z-10 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-6 lg:gap-12 xl:gap-20 px-4 sm:px-6 lg:px-10 py-6 sm:py-10 pb-10 min-h-[calc(100dvh-68px)]">
 
         {/* ── Left: Wheel + Controls ── */}
-        <div className="flex flex-col items-center gap-5 sm:gap-6 w-full max-w-[520px] shrink-0">
+        <div className="flex flex-col items-center gap-4 sm:gap-6 w-full max-w-[520px] shrink-0">
 
           {/* Title */}
-          <div className="text-center space-y-3">
+          <div className="text-center space-y-2 sm:space-y-3">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full" style={{ background: "rgba(0,245,255,0.05)", border: "1px solid rgba(0,245,255,0.14)" }}>
               <span className={`w-1.5 h-1.5 rounded-full ${isBusy ? "bg-amber-400" : "bg-emerald-400"} animate-pulse`} />
               <span className="text-[10px] tracking-[0.28em] uppercase font-medium" style={{ color: "rgba(0,245,255,0.65)" }}>
                 {isBusy ? "Spinning…" : activeCount > 0 ? `${activeCount} players ready` : "Add participants"}
               </span>
             </div>
-            <h2 className="font-[family-name:var(--font-orbitron)] font-black tracking-wide leading-[1.08]" style={{ fontSize: "clamp(2rem,5vw,2.75rem)" }}>
+            <h2 className="font-[family-name:var(--font-orbitron)] font-black tracking-wide leading-[1.08]" style={{ fontSize: "clamp(1.6rem,5vw,2.75rem)" }}>
               <span style={{ background: "linear-gradient(180deg,#fff 0%,rgba(255,255,255,0.6) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                 SPIN THE{" "}
               </span>
@@ -281,11 +282,11 @@ export default function WheelSelectorPage() {
           </div>
 
           {/* ── Wheel with atmosphere ── */}
-          <div className="relative flex items-center justify-center w-full" style={{ minHeight: 320 }}>
+          <div className="relative flex items-center justify-center w-full" style={{ minHeight: "min(320px, 90vw)" }}>
 
             {/* Deep ambient glow */}
             <div className="absolute rounded-full pointer-events-none" style={{
-              width: 640, height: 640,
+              width: "min(640px, 140vw)", height: "min(640px, 140vw)",
               background: isSpinning
                 ? "radial-gradient(circle, rgba(0,245,255,0.14) 0%, rgba(124,58,237,0.08) 38%, transparent 65%)"
                 : showWinnerBanner
@@ -298,7 +299,7 @@ export default function WheelSelectorPage() {
             {/* Spinning conic ring during spin */}
             {isSpinning && (
               <div className="absolute rounded-full pointer-events-none" style={{
-                width: 556, height: 556,
+                width: "min(556px, 120vw)", height: "min(556px, 120vw)",
                 background: "conic-gradient(transparent 0deg, rgba(0,245,255,0.07) 60deg, transparent 120deg, rgba(167,139,250,0.07) 180deg, transparent 240deg, rgba(255,0,110,0.07) 300deg, transparent 360deg)",
                 animation: "spin-ring 4s linear infinite",
                 transform: "translate(-50%,-50%)", left: "50%", top: "50%",
@@ -308,7 +309,7 @@ export default function WheelSelectorPage() {
             {/* Winner gold ring */}
             {showWinnerBanner && lastWinner && !isSpinning && (
               <div className="absolute rounded-full pointer-events-none" style={{
-                width: 530, height: 530,
+                width: "min(530px, 115vw)", height: "min(530px, 115vw)",
                 border: "2px solid rgba(255,215,0,0.25)",
                 boxShadow: "0 0 40px rgba(255,200,0,0.18), inset 0 0 40px rgba(255,200,0,0.06)",
                 animation: "glow-pulse 2s ease-in-out infinite",
@@ -382,7 +383,7 @@ export default function WheelSelectorPage() {
               className="relative w-full overflow-hidden font-[family-name:var(--font-orbitron)] font-black tracking-[0.14em] transition-all duration-300 disabled:opacity-20 disabled:cursor-not-allowed group"
               style={{
                 borderRadius: 16,
-                padding: "22px 24px",
+                padding: "clamp(16px, 4vw, 22px) 24px",
                 fontSize: "clamp(15px,2.5vw,18px)",
                 background: isBusy
                   ? "linear-gradient(135deg,#0c0c20,#16162e)"
