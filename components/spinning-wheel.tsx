@@ -209,7 +209,8 @@ export function SpinningWheel({
       // Rebuild ONLY when participants or size change — otherwise reuse.
       // This turns per-frame O(n) gradient/text draws into a single O(1) drawImage.
       const skipShimmer = activeParticipants.length >= 15;
-      const cacheKey = `${activeParticipants.length}_${totalWeight.toFixed(3)}_${activeParticipants[0]?.id ?? "none"}_${size}`;
+      // Key covers: any count change, any ID change, any individual weight change, size change
+      const cacheKey = activeParticipants.map((p) => `${p.id}:${p.weight.toFixed(3)}`).join("|") + `_${size}`;
 
       if (cacheKey !== cacheKeyRef.current || offscreenSizeRef.current !== size || !offscreenRef.current) {
         cacheKeyRef.current = cacheKey;
