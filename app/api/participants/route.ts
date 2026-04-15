@@ -1,4 +1,4 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { getParticipants, replaceParticipants } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -26,8 +26,10 @@ export async function PUT(req: Request) {
       }))
       .filter((p) => p.name.length > 0);
 
-    // Persist to DB in background — respond instantly
-    after(() => replaceParticipants(sanitized).catch(() => {}));
+    // Fire-and-forget DB write — in-memory is updated synchronously inside
+    // replaceParticipants before the first await, so concurrent GETs always
+    // see the new list even before MongoDB finishes writing.
+    replaceParticipants(sanitized).catch(() => {});
 
     return NextResponse.json({ participants: sanitized });
   } catch {

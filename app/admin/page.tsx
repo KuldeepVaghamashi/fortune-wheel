@@ -52,8 +52,8 @@ export default function AdminPage() {
   }, [authorized, loadAdminData]);
 
   // Poll /api/participants every 3 s so the admin sees user-side adds/removes instantly.
-  // Merge strategy: preserve local isExcluded for existing participants (unsaved admin
-  // visibility toggles survive), only add/remove rows when IDs change.
+  // When IDs are identical the update is skipped to preserve unsaved admin visibility
+  // toggles. When anything changed, the server data is used as-is (authoritative).
   useEffect(() => {
     if (!authorized) return;
     const id = setInterval(async () => {
@@ -62,15 +62,10 @@ export default function AdminPage() {
         const data = await res.json();
         const fresh: Participant[] = data.participants ?? [];
         setParticipants((prev) => {
-          const prevIds = new Set(prev.map((p) => p._id));
-          const freshIds = new Set(fresh.map((p: Participant) => p._id));
-          const changed =
-            fresh.some((p: Participant) => !prevIds.has(p._id)) ||
-            prev.some((p) => !freshIds.has(p._id));
-          if (!changed) return prev;
-          // Rebuild list: keep local state for existing participants, add new ones from server
-          const prevMap = new Map(prev.map((p) => [p._id, p]));
-          return fresh.map((fp: Participant) => prevMap.get(fp._id) ?? fp);
+          const prevKey = prev.map((p) => p._id).join(",");
+          const freshKey = fresh.map((p: Participant) => p._id).join(",");
+          if (prevKey === freshKey) return prev; // same list — keep unsaved local toggles
+          return fresh;                          // list changed — use server truth directly
         });
       } catch { /* ignore */ }
     }, 3000);
